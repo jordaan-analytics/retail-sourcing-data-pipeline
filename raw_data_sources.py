@@ -99,3 +99,47 @@ asndf.to_csv('/Users/jordaan/Documents/Analytics_Engineering/Analytics_Engineeri
 print("Raw Retail Link ASNs Ready!")
 
 
+# Next build the raw warehouse receipts, representing the physical reality at the dock
+# PO number, SKU, Received total units 
+
+raw_warehouse_receipts = []
+
+# Some shipments may still be in transit and not yet received at the warehouse, so we will randomly sample 3500 out of the 4000 shipped POs to simulate this
+recieved_pos = random.sample(raw_retaillink_asns, 3500)
+
+for asn_record in recieved_pos:
+    po_number = asn_record['PO_Number']
+    sku = asn_record['SKU']
+    received_units = asn_record['Shipped_Cases'] * asn_record['Shipped_Units_Per_Case']
+
+    # Introduce some variability to simulate real-world discrepancies at the dock
+    chance = random.random()
+
+    if chance < 0.85:
+        # The 85% NORMAL: The warehouse receipt matches the ASN
+        received_units = received_units
+    
+    elif chance < 0.95:
+        # The 10% ANOMALY: Short Received
+        # Subtract some cases from the received total to simulate a short receipt at the dock
+        received_units = max(0, (asn_record['Shipped_Cases'] - random.randint(1,3)) * asn_record['Shipped_Units_Per_Case'])
+    
+    elif chance < 0.98:
+        # The 3% ANOMALY: Over Received
+        # Add some cases to the received total to simularte an over receipt at the dock
+        received_units = max(0, (asn_record['Shipped_Cases'] + random.randint(1,3)) * asn_record['Shipped_Units_Per_Case'])
+    else:
+        # The 2% ANOMALY: Double Scan at the dock
+        # The received total is double what was actually shipped according to the ASN
+        received_units = received_units * 2
+    
+    # Append the final generated warehouse receipt record
+    raw_warehouse_receipts.append({
+        'PO_Number': po_number,
+        'SKU': sku,
+        'Received_Units': received_units
+    })
+receiptsdf = pd.DataFrame(raw_warehouse_receipts, columns= ['PO_Number', 'SKU', 'Received_Units'])
+receiptsdf.to_csv('/Users/jordaan/Documents/Analytics_Engineering/Analytics_Engineering_Vault/Sandbox_CSVs/raw_warehouse_receipts.csv', index=False)
+
+print("Raw Warehouse Receipts Ready!")
